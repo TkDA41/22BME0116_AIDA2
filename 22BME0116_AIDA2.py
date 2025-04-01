@@ -1,29 +1,41 @@
 import numpy as np
-import matplotlib.pyplot as plt
-from sklearn.linear_model import LinearRegression
-from sklearn.model_selection import train_test_split
+import skfuzzy as fuzz
+from skfuzzy import control as ctrl
 
-# Generate sample data
-X = np.array([1, 2, 3, 4, 5]).reshape(-1, 1)  # Features
-y = np.array([2.2, 2.8, 3.6, 4.5, 5.1])      # Labels
+# Define fuzzy variables
+vehicle_density = ctrl.Antecedent(np.arange(0, 101, 1), 'vehicle_density')  # Input: Number of vehicles
+waiting_time = ctrl.Antecedent(np.arange(0, 11, 1), 'waiting_time')         # Input: Waiting time in minutes
+green_light_duration = ctrl.Consequent(np.arange(0, 61, 1), 'green_light_duration')  # Output: Green light duration in seconds
 
-# Split data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Define membership functions for vehicle density
+vehicle_density['low'] = fuzz.trimf(vehicle_density.universe, [0, 0, 30])
+vehicle_density['medium'] = fuzz.trimf(vehicle_density.universe, [20, 50, 80])
+vehicle_density['high'] = fuzz.trimf(vehicle_density.universe, [70, 100, 100])
 
-# Create and train the model
-model = LinearRegression()
-model.fit(X_train, y_train)
+# Define membership functions for waiting time
+waiting_time['short'] = fuzz.trimf(waiting_time.universe, [0, 0, 3])
+waiting_time['medium'] = fuzz.trimf(waiting_time.universe, [2, 5, 8])
+waiting_time['long'] = fuzz.trimf(waiting_time.universe, [7, 10, 10])
 
-# Predict on test data
-y_pred = model.predict(X_test)
+# Define membership functions for green light duration
+green_light_duration['short'] = fuzz.trimf(green_light_duration.universe, [0, 0, 20])
+green_light_duration['medium'] = fuzz.trimf(green_light_duration.universe, [15, 30, 45])
+green_light_duration['long'] = fuzz.trimf(green_light_duration.universe, [40, 60, 60])
 
-# Print results
-print("Predicted values:", y_pred)
-print("Actual values:", y_test)
+# Define fuzzy rules
+rule1 = ctrl.Rule(vehicle_density['low'] & waiting_time['short'], green_light_duration['short'])
+rule2 = ctrl.Rule(vehicle_density['medium'] & waiting_time['medium'], green_light_duration['medium'])
+rule3 = ctrl.Rule(vehicle_density['high'] | waiting_time['long'], green_light_duration['long'])
 
+# Create control system
+traffic_control_system = ctrl.ControlSystem([rule1, rule2, rule3])
+traffic_simulation = ctrl.ControlSystemSimulation(traffic_control_system)
 
-# Plot the regression line
-plt.scatter(X, y, color='blue', label='Data points')
-plt.plot(X, model.predict(X), color='red', label='Regression line')
-plt.legend()
-plt.show()
+# Simulate the system with input values
+traffic_simulation.input['vehicle_density'] =10   # Example: low vehicle density
+traffic_simulation.input['waiting_time'] = 2       # Example: medium waiting time
+
+traffic_simulation.compute()
+
+# Output the result
+print(f"Recommended Green Light Duration: {traffic_simulation.output['green_light_duration']} seconds")
